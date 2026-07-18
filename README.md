@@ -100,6 +100,8 @@ flowchart LR
 
 For the full daily plan, see [docs/BOOTCAMP_PLAN.md](docs/BOOTCAMP_PLAN.md).
 
+For local setup commands, see [docs/DAY_01_SETUP.md](docs/DAY_01_SETUP.md).
+
 ## Expected Repository Structure
 
 ```text
@@ -173,4 +175,4 @@ These are intentionally outside the core 30-day scope:
 
 ## Project Status
 
-Planning phase. The next step is to create the initial project structure, choose the Kaggle dataset, and start Week 1.
+Day 1 setup phase. The next step is to choose the Kaggle dataset and start loading the first CSV.

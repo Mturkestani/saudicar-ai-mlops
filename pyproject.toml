@@ -1,0 +1,17 @@
+[project]
+name = "saudicar-ai-mlops"
+version = "0.1.0"
+description = "Production-style MLOps bootcamp project for Saudi used car price prediction."
+readme = "README.md"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
