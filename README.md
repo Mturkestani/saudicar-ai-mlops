@@ -102,6 +102,8 @@ For the full daily plan, see [docs/BOOTCAMP_PLAN.md](docs/BOOTCAMP_PLAN.md).
 
 For local setup commands, see [docs/DAY_01_SETUP.md](docs/DAY_01_SETUP.md).
 
+For dataset details, see [docs/DATASET.md](docs/DATASET.md).
+
 ## Expected Repository Structure
 
 ```text
@@ -175,4 +177,4 @@ These are intentionally outside the core 30-day scope:
 
 ## Project Status
 
-Day 1 setup phase. The next step is to choose the Kaggle dataset and start loading the first CSV.
+Day 1 setup phase. The Kaggle dataset has been selected and loaded locally. The next step is to start exploratory data analysis.
