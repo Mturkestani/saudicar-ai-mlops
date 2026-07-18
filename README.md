@@ -104,6 +104,8 @@ For local setup commands, see [docs/DAY_01_SETUP.md](docs/DAY_01_SETUP.md).
 
 For dataset details, see [docs/DATASET.md](docs/DATASET.md).
 
+For the first exploratory analysis, see [docs/EDA_SUMMARY.md](docs/EDA_SUMMARY.md).
+
 ## Expected Repository Structure
 
 ```text
