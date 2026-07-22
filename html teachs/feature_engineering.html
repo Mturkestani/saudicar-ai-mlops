@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SaudiCar AI - Day 6 Feature Engineering</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page">
+    <header>
+      <p class="kicker">SaudiCar AI Bootcamp &middot; Day 6</p>
+      <h1>Feature Engineering</h1>
+      <p class="intro">
+        Feature engineering is how we turn raw car listings into numbers a model can
+        actually learn from. This page explains why models need numbers, what encoding
+        is, why it matters, and how each step applies to our real Saudi used car dataset.
+      </p>
+      <nav aria-label="Page sections">
+        <a href="#numbers">Why numbers?</a>
+        <a href="#feature">What is a feature</a>
+        <a href="#jobs">The 3 jobs</a>
+        <a href="#encoding">Encoding</a>
+        <a href="#numeric">Numeric features</a>
+        <a href="#leakage">Data leakage</a>
+        <a href="#example">Worked example</a>
+        <a href="#pipeline">The pipeline</a>
+        <a href="#quiz">Quiz</a>
+        <a href="#glossary">Glossary</a>
+      </nav>
+    </header>
+
+    <main>
+
+      <!-- ========================================================= -->
+      <section id="numbers">
+        <span class="eyebrow">The core problem</span>
+        <h2>Why does the model want numbers?</h2>
+        <p class="section-copy">
+          A machine learning model is, underneath, a big pile of <strong>math</strong>. To
+          predict a price it multiplies each input by a weight and adds the results
+          together, or it compares numeric values to split the data into groups. Every one
+          of those operations &mdash; multiply, add, compare as greater/less &mdash; only
+          works on <strong>numbers</strong>.
+        </p>
+
+        <div class="grid">
+          <article class="panel half">
+            <h3>What a model can do</h3>
+            <p>Multiply <code>Mileage &times; weight</code>. Ask <code>is Year &gt; 2015?</code>.
+            Add many numeric signals into one predicted price. All pure arithmetic.</p>
+          </article>
+          <article class="panel half">
+            <h3>What a model cannot do</h3>
+            <p>It cannot multiply the word <code>"Toyota"</code>. It cannot ask
+            <code>is "Camry" &gt; "Patrol"?</code>. Text has no numeric value, so the math
+            simply has nowhere to start.</p>
+          </article>
+        </div>
+
+        <p class="section-copy" style="margin-top:22px">
+          A linear model literally computes something like this:
+        </p>
+        <div class="codeblock"><code><span class="cm"># The model learns one weight per numeric input</span>
+price = (w1 <span class="kw">*</span> car_age)
+      <span class="kw">+</span> (w2 <span class="kw">*</span> Mileage)
+      <span class="kw">+</span> (w3 <span class="kw">*</span> Engine_Size)
+      <span class="kw">+</span> (w4 <span class="kw">*</span> is_make_toyota)   <span class="cm"># 0 or 1</span>
+      <span class="kw">+</span> ... <span class="kw">+</span> bias</code></div>
+
+        <div class="note">
+          <strong>Key idea:</strong> Our dataset is full of text &mdash; <code>Make</code>,
+          <code>Type</code>, <code>Fuel_Type</code>, <code>Gear_Type</code>, <code>Region</code>.
+          The model can't touch any of it until we convert it into numbers. That conversion
+          is the main job of Day 6.
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <section id="feature">
+        <span class="eyebrow">Vocabulary</span>
+        <h2>What is a &ldquo;feature&rdquo;?</h2>
+        <p class="section-copy">
+          A <strong>feature</strong> is one input signal the model uses to make its
+          prediction. In our dataset each column (except the target) is a feature candidate.
+          The <strong>target</strong> is the thing we want to predict: <code>Price</code>.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Column</th><th>Meaning</th><th>Type now</th><th>Model-ready?</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>Make</code></td><td>Brand (Toyota, Hyundai&hellip;)</td><td>Text</td><td><span class="pill bad">No &mdash; encode it</span></td></tr>
+              <tr><td><code>Type</code></td><td>Model (Camry, Patrol&hellip;) &mdash; 100s of values</td><td>Text</td><td><span class="pill warn">Hard case</span></td></tr>
+              <tr><td><code>Fuel_Type</code></td><td>Gas / Diesel / Hybrid</td><td>Text</td><td><span class="pill bad">No &mdash; encode it</span></td></tr>
+              <tr><td><code>Gear_Type</code></td><td>Automatic / Manual</td><td>Text</td><td><span class="pill bad">No &mdash; encode it</span></td></tr>
+              <tr><td><code>Region</code></td><td>City (Riyadh, Dammam&hellip;)</td><td>Text</td><td><span class="pill bad">No &mdash; encode it</span></td></tr>
+              <tr><td><code>Year</code></td><td>Manufacturing year</td><td>Number</td><td><span class="pill warn">Improve &rarr; car_age</span></td></tr>
+              <tr><td><code>Mileage</code></td><td>Kilometres driven</td><td>Number</td><td><span class="pill">Usable</span></td></tr>
+              <tr><td><code>Engine_Size</code></td><td>Engine size (litres)</td><td>Number</td><td><span class="pill">Usable</span></td></tr>
+              <tr><td><code>Price</code></td><td>Listed price in SAR &mdash; <strong>target</strong></td><td>Number</td><td><span class="pill warn">Skewed &rarr; log</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="section-copy" style="margin-top:22px">
+          <strong>Feature engineering</strong> = the work of turning these raw columns into a
+          clean table of numbers, and creating <em>new</em> useful signals along the way (like
+          turning <code>Year</code> into <code>car_age</code>).
+        </p>
+      </section>
+
+      <!-- ========================================================= -->
+      <section id="jobs">
+        <span class="eyebrow">The plan</span>
+        <h2>Our three jobs on Day 6</h2>
+        <div class="workflow">
+          <article class="step">
+            <h3>Encode the text columns</h3>
+            <p>Turn <code>Make</code>, <code>Fuel_Type</code>, <code>Gear_Type</code>, <code>Region</code>
+            (and later <code>Type</code>) into numbers the model can use.</p>
+          </article>
+          <article class="step">
+            <h3>Improve the numeric columns</h3>
+            <p>Create <code>car_age</code> from <code>Year</code>, consider predicting
+            <code>log(Price)</code>, and rely on Day 5 cleaning to handle wild outliers.</p>
+          </article>
+          <article class="step">
+            <h3>Assemble one model-ready matrix</h3>
+            <p>All numeric, no text, no missing values, columns in a fixed known order &mdash;
+            saved to <code>data/processed/</code>.</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <section id="encoding">
+        <span class="eyebrow">The heart of Day 6</span>
+        <h2>What is encoding &mdash; and why it matters</h2>
+        <p class="section-copy">
+          <strong>Encoding</strong> means converting a text category into a number (or a set of
+          numbers). It matters because a wrong encoding doesn't just fail &mdash; it can quietly
+          <strong>lie</strong> to the model and hurt accuracy without any error message. Here are
+          the three encodings you need, and exactly when to use each on our data.
+        </p>
+
+        <!-- One-hot -->
+        <h3 style="margin-top:28px">1. One-Hot Encoding</h3>
+        <p class="section-copy">
+          Make one new 0/1 column per category. A row gets <code>1</code> in the column for its
+          category and <code>0</code> everywhere else. Best for columns with <strong>few</strong>
+          distinct values (low cardinality).
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Gear_Type (raw)</th><th>gear_Automatic</th><th>gear_Manual</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Automatic</td><td>1</td><td>0</td></tr>
+              <tr><td>Manual</td><td>0</td><td>1</td></tr>
+              <tr><td>Automatic</td><td>1</td><td>0</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="tip">
+          <strong>Use on our data for:</strong> <code>Gear_Type</code> (2 values),
+          <code>Fuel_Type</code> (~3 values), <code>Region</code> (~10 values), and
+          <code>Make</code> (a few dozen). These stay a reasonable number of new columns.
+        </div>
+
+        <!-- Ordinal -->
+        <h3 style="margin-top:28px">2. Ordinal (Label) Encoding</h3>
+        <p class="section-copy">
+          Map each category to a single integer: <code>0, 1, 2&hellip;</code>. This is only correct
+          when the categories have a <strong>real order</strong>, because the numbers imply
+          <code>2 &gt; 1 &gt; 0</code>.
+        </p>
+        <div class="warning">
+          <strong>The classic trap:</strong> If we encode <code>Make</code> as
+          <code>Toyota = 0, Ford = 1, Lexus = 2</code>, the model believes
+          <code>Lexus &gt; Ford &gt; Toyota</code> as numbers, and even that
+          <code>Toyota + Toyota = Ford</code>. That ordering is <em>fake</em> &mdash; brands have no
+          natural order. This silently damages the model. So we do <strong>not</strong> ordinal-encode
+          <code>Make</code>, <code>Type</code>, or <code>Region</code>.
+        </div>
+        <p class="section-copy">
+          Ordinal encoding would only make sense for something like
+          <code>small &lt; medium &lt; large</code>. Our dataset doesn't really have such a column,
+          so we mostly avoid it.
+        </p>
+
+        <!-- Target / frequency -->
+        <h3 style="margin-top:28px">3. Target / Frequency Encoding</h3>
+        <p class="section-copy">
+          For columns with <strong>too many</strong> values to one-hot &mdash; our <code>Type</code>
+          column (Camry, Patrol, Land Cruiser, Sonata&hellip; hundreds of models). One-hot would
+          explode into hundreds of columns. Instead we replace each category with a single summary
+          number:
+        </p>
+        <div class="grid">
+          <article class="panel half">
+            <h3>Frequency encoding</h3>
+            <p>Replace the category with <strong>how often it appears</strong>. Camry appears
+            often &rarr; large number; a rare model &rarr; small number.</p>
+          </article>
+          <article class="panel half">
+            <h3>Target encoding</h3>
+            <p>Replace the category with the <strong>average price</strong> of that category in the
+            training data. &ldquo;Land Cruiser&rdquo; &rarr; its typical price.</p>
+          </article>
+        </div>
+        <div class="warning">
+          <strong>Powerful but risky:</strong> target encoding uses the price to build a feature, so
+          it can <em>leak the answer</em> if done wrong. See the leakage section below. For our first
+          model, one-hot the easy columns and leave <code>Type</code> out or frequency-encode it.
+        </div>
+
+        <div class="note" style="margin-top:22px">
+          <strong>Quick rule of thumb:</strong> few categories &rarr; one-hot. Real order &rarr;
+          ordinal. Too many categories &rarr; frequency or (careful) target encoding. Never
+          ordinal-encode something unordered like a brand.
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <section id="numeric">
+        <span class="eyebrow">Beyond encoding</span>
+        <h2>Improving the numeric features</h2>
+
+        <div class="grid">
+          <article class="panel">
+            <h3>Year &rarr; car_age</h3>
+            <p>Models learn &ldquo;how old is the car&rdquo; better than a raw year. We create
+            <code>car_age = 2026 - Year</code>. A 2018 car becomes <code>8</code>. This is a brand
+            new feature we <em>engineered</em> &mdash; that's literally the name of the topic.</p>
+          </article>
+          <article class="panel">
+            <h3>Price &rarr; log(Price)</h3>
+            <p>Our EDA showed price is skewed: median <strong>58,000</strong> but max
+            <strong>1,150,000</strong> SAR. Training on <code>log(Price)</code> tames the luxury
+            outliers; we take <code>exp()</code> of the prediction to get SAR back.</p>
+          </article>
+          <article class="panel">
+            <h3>Mileage &amp; Engine_Size</h3>
+            <p>Keep them, but the extreme values (a car with <strong>20,000,000 km</strong>!) should
+            be removed in Day 5 cleaning. Feature engineering assumes the input is already clean.</p>
+          </article>
+          <article class="panel">
+            <h3>Optional: scaling</h3>
+            <p>Linear models like inputs on a similar range. <code>Mileage</code> is in the hundreds
+            of thousands; <code>Engine_Size</code> is ~2&ndash;6. A scaler can put them on a common
+            scale. Tree models (Random Forest) don't need this.</p>
+          </article>
+        </div>
+
+        <div class="note">
+          <strong>Why these help:</strong> our EDA correlations were <code>Year 0.308</code>,
+          <code>Engine_Size 0.304</code>, <code>Mileage -0.119</code>. Newer + bigger engine &rarr;
+          higher price; more mileage &rarr; lower price. Good features make these real relationships
+          easier for the model to see.
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <section id="leakage">
+        <span class="eyebrow">Interview gold</span>
+        <h2>The one rule that matters most: no data leakage</h2>
+        <p class="section-copy">
+          <strong>Data leakage</strong> (<span class="ar">&#1578;&#1587;&#1585;&#1610;&#1576; &#1575;&#1604;&#1576;&#1610;&#1575;&#1606;&#1575;&#1578;</span>) happens
+          when information from the test set (or from the answer) sneaks into your features. The
+          model looks amazing in your notebook and then falls apart in production. This is the single
+          biggest thing that separates a &ldquo;notebook model&rdquo; from an MLOps engineer.
+        </p>
+
+        <div class="beforeafter">
+          <div class="ba-card raw">
+            <p class="ba-label">Wrong &mdash; leaks the answer</p>
+            <p style="color:var(--muted);margin:0">Compute &ldquo;average price per <code>Make</code>&rdquo; over the
+            <strong>whole CSV</strong>, then use it as a feature. Rows you'll test on helped build the
+            feature, so scores look unrealistically good.</p>
+          </div>
+          <div class="ba-arrow">&rarr;</div>
+          <div class="ba-card ready">
+            <p class="ba-label">Right &mdash; fit on train only</p>
+            <p style="color:var(--muted);margin:0">Split first. Learn every encoder / average / scaler from the
+            <strong>training rows only</strong>, then apply those fixed rules to the test rows and to
+            live requests.</p>
+          </div>
+        </div>
+
+        <div class="warning">
+          <strong>The golden rule:</strong> <em>fit</em> encoders and scalers on the training data
+          only, then <em>transform</em> everything else with them. Never let the test set influence
+          how a feature is built.
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <section id="example">
+        <span class="eyebrow">Putting it together</span>
+        <h2>Worked example: one car &rarr; a row of numbers</h2>
+        <p class="section-copy">
+          Here is a single real-style listing before and after feature engineering. The
+          &ldquo;after&rdquo; row is what the model actually trains on.
+        </p>
+
+        <div class="beforeafter">
+          <div class="ba-card raw">
+            <p class="ba-label">Raw listing (text + numbers)</p>
+            <dl class="kv">
+              <dt>Make</dt><dd>Toyota</dd>
+              <dt>Type</dt><dd>Camry</dd>
+              <dt>Year</dt><dd>2018</dd>
+              <dt>Gear_Type</dt><dd>Automatic</dd>
+              <dt>Fuel_Type</dt><dd>Gas</dd>
+              <dt>Region</dt><dd>Riyadh</dd>
+              <dt>Engine_Size</dt><dd>2.5</dd>
+              <dt>Mileage</dt><dd>120000</dd>
+              <dt>Price (target)</dt><dd>75000</dd>
+            </dl>
+          </div>
+          <div class="ba-arrow">&rarr;</div>
+          <div class="ba-card ready">
+            <p class="ba-label">Model-ready (all numbers)</p>
+            <dl class="kv">
+              <dt>car_age</dt><dd>8</dd>
+              <dt>Engine_Size</dt><dd>2.5</dd>
+              <dt>Mileage</dt><dd>120000</dd>
+              <dt>make_Toyota</dt><dd>1</dd>
+              <dt>make_Hyundai</dt><dd>0</dd>
+              <dt>gear_Automatic</dt><dd>1</dd>
+              <dt>fuel_Gas</dt><dd>1</dd>
+              <dt>region_Riyadh</dt><dd>1</dd>
+              <dt>y = log(Price)</dt><dd>11.23</dd>
+            </dl>
+          </div>
+        </div>
+        <p class="section-copy" style="margin-top:20px">
+          Notice: no words remain. <code>Year</code> became <code>car_age</code>, each category
+          became one or more 0/1 columns, and the target became <code>log(Price)</code>. This row of
+          pure numbers is exactly what the math from the first section can handle.
+        </p>
+      </section>
+
+      <!-- ========================================================= -->
+      <section id="pipeline">
+        <span class="eyebrow">Connecting to the product</span>
+        <h2>Why we wrap this in a pipeline</h2>
+        <p class="section-copy">
+          The same transformation must run at <strong>training time</strong> and at
+          <strong>prediction time</strong> in the API. If they differ even slightly, predictions go
+          wrong. A scikit-learn <strong>Pipeline</strong> bundles &ldquo;encode + scale + model&rdquo;
+          into one object we <code>fit</code> once and <code>save</code> as an artifact.
+        </p>
+        <div class="codeblock"><code><span class="cm"># The shape of what we'll build in src/saudi_car_ai/features/</span>
+build_features(df)          <span class="cm"># create car_age, pick columns</span>
+preprocessor.fit(train_X)   <span class="cm"># learn encoders on TRAIN only</span>
+X = preprocessor.transform(X)   <span class="cm"># apply same rules everywhere</span>
+joblib.dump(preprocessor, ...)  <span class="cm"># save artifact for the API</span></code></div>
+        <div class="note">
+          <strong>Big picture:</strong> in our architecture the flow is
+          <code>Cleaning &rarr; Feature Engineering &rarr; data/processed &rarr; Training</code>. The
+          encoder we build here is later <strong>loaded by the FastAPI service</strong> so a live
+          request like <code>{"Make": "Toyota", "Year": 2019, ...}</code> is transformed the exact
+          same way as training data. Feature engineering is where the &ldquo;model&rdquo; quietly
+          becomes a &ldquo;product&rdquo;.
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <section id="quiz">
+        <span class="eyebrow">Check yourself</span>
+        <h2>Mini quiz</h2>
+        <p class="section-copy">Try to answer before opening each one.</p>
+        <div class="quiz">
+          <details class="quiz-item">
+            <summary>Why can't the model use the word &ldquo;Toyota&rdquo; directly?</summary>
+            <div class="answer">Because the model is math &mdash; it multiplies, adds, and compares
+            numbers. Text has no numeric value, so we must <strong>encode</strong> it (e.g. one-hot into
+            <code>make_Toyota = 1</code>).</div>
+          </details>
+          <details class="quiz-item">
+            <summary><code>Gear_Type</code> has 2 values, <code>Type</code> has 100+. Which encoding for each?</summary>
+            <div class="answer"><strong>Gear_Type &rarr; one-hot</strong> (few values, cheap).
+            <strong>Type &rarr; frequency or target encoding</strong> (one-hot would create hundreds
+            of columns). Never ordinal-encode either, because their categories have no real order.</div>
+          </details>
+          <details class="quiz-item">
+            <summary>Why is <code>car_age</code> a better feature than <code>Year</code>?</summary>
+            <div class="answer">Price depends on <em>how old</em> the car is. <code>car_age = 2026 - Year</code>
+            expresses that directly, so the model learns the relationship more easily than from a raw
+            year number like 2018.</div>
+          </details>
+          <details class="quiz-item">
+            <summary>I compute &ldquo;average price per Make&rdquo; over the whole CSV and use it as a feature. What's the mistake?</summary>
+            <div class="answer">That's <strong>data leakage</strong> &mdash; test rows helped build the
+            feature, so results look too good and fail in production. Fix: split first, then compute the
+            averages on the <strong>training set only</strong> and apply them to the rest.</div>
+          </details>
+          <details class="quiz-item">
+            <summary>Why do we consider predicting <code>log(Price)</code> instead of <code>Price</code>?</summary>
+            <div class="answer">Price is heavily skewed (median 58k, max 1.15M SAR). A few luxury cars
+            distort training. Predicting <code>log(Price)</code> compresses that range; we
+            <code>exp()</code> the prediction to return SAR.</div>
+          </details>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <section id="glossary">
+        <span class="eyebrow">Reference</span>
+        <h2>Glossary</h2>
+        <dl>
+          <div class="definition">
+            <dt>Feature<br><span class="ar">&#1605;&#1610;&#1586;&#1577;</span></dt>
+            <dd>One input signal the model uses to predict, e.g. <code>car_age</code> or <code>Mileage</code>.</dd>
+          </div>
+          <div class="definition">
+            <dt>Target<br><span class="ar">&#1575;&#1604;&#1607;&#1583;&#1601;</span></dt>
+            <dd>The value we predict. For us it's <code>Price</code> (or <code>log(Price)</code>).</dd>
+          </div>
+          <div class="definition">
+            <dt>Encoding<br><span class="ar">&#1575;&#1604;&#1578;&#1585;&#1605;&#1610;&#1586;</span></dt>
+            <dd>Converting a text category into numbers so the model can use it.</dd>
+          </div>
+          <div class="definition">
+            <dt>One-hot encoding</dt>
+            <dd>One 0/1 column per category. Best for few categories.</dd>
+          </div>
+          <div class="definition">
+            <dt>Ordinal encoding</dt>
+            <dd>Category &rarr; single integer. Only for ordered categories.</dd>
+          </div>
+          <div class="definition">
+            <dt>Cardinality</dt>
+            <dd>How many distinct values a column has. <code>Gear_Type</code> is low; <code>Type</code> is high.</dd>
+          </div>
+          <div class="definition">
+            <dt>Data leakage<br><span class="ar">&#1578;&#1587;&#1585;&#1610;&#1576; &#1575;&#1604;&#1576;&#1610;&#1575;&#1606;&#1575;&#1578;</span></dt>
+            <dd>Test/answer information leaking into features. Causes fake-good scores.</dd>
+          </div>
+          <div class="definition">
+            <dt>Pipeline</dt>
+            <dd>An object bundling preprocessing + model so the same steps run in training and in the API.</dd>
+          </div>
+        </dl>
+      </section>
+
+      <!-- ========================================================= -->
+      <section>
+        <span class="eyebrow">Done when</span>
+        <h2>Day 6 is done when you can&hellip;</h2>
+        <ul class="checklist">
+          <li>Explain why a model needs numeric inputs.</li>
+          <li>Say what encoding is and why the wrong one can silently hurt the model.</li>
+          <li>Pick one-hot vs frequency/target encoding for each of our text columns.</li>
+          <li>Explain why <code>car_age</code> and <code>log(Price)</code> are useful.</li>
+          <li>Explain data leakage and the &ldquo;fit on train only&rdquo; rule.</li>
+          <li>Describe how the saved preprocessor is reused by the FastAPI service.</li>
+        </ul>
+      </section>
+
+    </main>
+
+    <footer>
+      <p>SaudiCar AI Bootcamp &middot; Day 6 Feature Engineering. Next up: build
+      <code>src/saudi_car_ai/features/build_features.py</code>, then train the baseline model on Day 7.</p>
+    </footer>
+  </div>
+</body>
+</html>
