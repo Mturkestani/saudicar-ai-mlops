@@ -2,22 +2,44 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
 import seaborn as sns
 from matplotlib import pyplot as plt
 
+from saudi_car_ai.data.dataset import load_dataset
+
 plt.switch_backend("Agg")
 
 
-RAW_DATA_PATH = Path("data/raw/UsedCarsSA_Clean_EN.csv")
 EDA_OUTPUT_DIR = Path("docs/assets/eda")
+LOW_PRICE_THRESHOLD = 5_000
+EXTREME_MILEAGE_THRESHOLD = 1_000_000
 
 
-def load_dataset(path: Path = RAW_DATA_PATH) -> pd.DataFrame:
-    """Load the selected clean English Saudi used car dataset."""
-    return pd.read_csv(path)
+@dataclass(frozen=True)
+class EdaFindings:
+    """Key Day 4 EDA findings for the raw dataset."""
+
+    total_rows: int
+    total_columns: int
+    duplicate_rows: int
+    total_missing_values: int
+    priced_rows: int
+    negotiable_counts: dict[str, int]
+    price_median: float
+    price_mean: float
+    price_max: float
+    mileage_median: float
+    mileage_p99: float
+    mileage_max: float
+    low_price_rows: int
+    extreme_mileage_rows: int
+    top_makes: dict[str, int]
+    top_regions: dict[str, int]
+    numeric_correlations: dict[str, float]
 
 
 def get_priced_listings(df: pd.DataFrame) -> pd.DataFrame:
@@ -26,17 +48,70 @@ def get_priced_listings(df: pd.DataFrame) -> pd.DataFrame:
     Negotiable listings in this dataset use Price = 0, so they should not be used
     for the first price prediction model.
     """
-    return df[(df["Negotiable"] == False) & (df["Price"] > 0)].copy()  # noqa: E712
+    return df[df["Negotiable"].eq(False) & df["Price"].gt(0)].copy()
+
+
+def summarize_categorical_column(
+    df: pd.DataFrame,
+    column: str,
+    top_n: int = 10,
+) -> dict[str, int]:
+    """Return the most common values for a categorical column."""
+    return {
+        str(value): int(count) for value, count in df[column].value_counts().head(top_n).items()
+    }
+
+
+def calculate_numeric_correlations(priced_df: pd.DataFrame) -> dict[str, float]:
+    """Calculate simple numeric correlations with the target price."""
+    correlations = (
+        priced_df[["Price", "Year", "Mileage", "Engine_Size"]]
+        .corr(numeric_only=True)["Price"]
+        .sort_values(ascending=False)
+    )
+
+    return {str(column): float(value) for column, value in correlations.items()}
+
+
+def build_eda_findings(df: pd.DataFrame) -> EdaFindings:
+    """Create the structured Day 4 EDA findings."""
+    priced_df = get_priced_listings(df)
+    price_summary = priced_df["Price"].describe()
+    mileage_summary = df["Mileage"].describe(percentiles=[0.99])
+
+    return EdaFindings(
+        total_rows=len(df),
+        total_columns=len(df.columns),
+        duplicate_rows=int(df.duplicated().sum()),
+        total_missing_values=int(df.isna().sum().sum()),
+        priced_rows=len(priced_df),
+        negotiable_counts={
+            str(value): int(count) for value, count in df["Negotiable"].value_counts().items()
+        },
+        price_median=float(price_summary["50%"]),
+        price_mean=float(price_summary["mean"]),
+        price_max=float(price_summary["max"]),
+        mileage_median=float(mileage_summary["50%"]),
+        mileage_p99=float(mileage_summary["99%"]),
+        mileage_max=float(mileage_summary["max"]),
+        low_price_rows=int(priced_df["Price"].lt(LOW_PRICE_THRESHOLD).sum()),
+        extreme_mileage_rows=int(df["Mileage"].gt(EXTREME_MILEAGE_THRESHOLD).sum()),
+        top_makes=summarize_categorical_column(df, "Make"),
+        top_regions=summarize_categorical_column(df, "Region"),
+        numeric_correlations=calculate_numeric_correlations(priced_df),
+    )
 
 
 def print_summary(df: pd.DataFrame, priced_df: pd.DataFrame) -> None:
     """Print the most important dataset health and modeling facts."""
+    findings = build_eda_findings(df)
+
     print("SaudiCar AI EDA Summary")
     print("=" * 24)
-    print(f"Full dataset shape: {df.shape}")
+    print(f"Full dataset shape: ({findings.total_rows}, {findings.total_columns})")
     print(f"Priced listings shape: {priced_df.shape}")
-    print(f"Duplicate rows: {df.duplicated().sum()}")
-    print(f"Total missing values: {int(df.isna().sum().sum())}")
+    print(f"Duplicate rows: {findings.duplicate_rows}")
+    print(f"Total missing values: {findings.total_missing_values}")
     print()
 
     print("Columns")
@@ -44,7 +119,8 @@ def print_summary(df: pd.DataFrame, priced_df: pd.DataFrame) -> None:
     print()
 
     print("Negotiable counts")
-    print(df["Negotiable"].value_counts().to_string())
+    for value, count in findings.negotiable_counts.items():
+        print(f"{value}: {count}")
     print()
 
     print("Priced listings price summary")
@@ -56,23 +132,25 @@ def print_summary(df: pd.DataFrame, priced_df: pd.DataFrame) -> None:
 
     print("Mileage summary")
     print(df["Mileage"].describe(percentiles=[0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99]).to_string())
+    print(
+        f"Extreme mileage rows above {EXTREME_MILEAGE_THRESHOLD:,} km: "
+        f"{findings.extreme_mileage_rows}"
+    )
     print()
 
     print("Top makes")
-    print(df["Make"].value_counts().head(10).to_string())
+    for value, count in findings.top_makes.items():
+        print(f"{value}: {count}")
     print()
 
     print("Top regions")
-    print(df["Region"].value_counts().head(10).to_string())
+    for value, count in findings.top_regions.items():
+        print(f"{value}: {count}")
     print()
 
     print("Numeric correlation with price")
-    print(
-        priced_df[["Price", "Year", "Mileage", "Engine_Size"]]
-        .corr(numeric_only=True)["Price"]
-        .sort_values(ascending=False)
-        .to_string()
-    )
+    for value, correlation in findings.numeric_correlations.items():
+        print(f"{value}: {correlation:.3f}")
 
 
 def save_price_distribution(priced_df: pd.DataFrame, output_dir: Path) -> None:
