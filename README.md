@@ -102,7 +102,23 @@ For the full daily plan, see [docs/BOOTCAMP_PLAN.md](docs/BOOTCAMP_PLAN.md).
 
 For local setup commands, see [docs/DAY_01_SETUP.md](docs/DAY_01_SETUP.md).
 
+For the Python refresh lesson, see [docs/DAY_02_PYTHON_REFRESH.md](docs/DAY_02_PYTHON_REFRESH.md).
+
+For the dataset loading lesson, see [docs/DAY_03_LOAD_DATASET.md](docs/DAY_03_LOAD_DATASET.md).
+
 For dataset details, see [docs/DATASET.md](docs/DATASET.md).
+
+For the exploratory analysis lesson, see [docs/DAY_04_EDA.md](docs/DAY_04_EDA.md).
+
+For the data cleaning lesson, see [docs/DAY_05_DATA_CLEANING.md](docs/DAY_05_DATA_CLEANING.md).
+
+For the feature engineering lesson, see [docs/DAY_06_FEATURE_ENGINEERING.md](docs/DAY_06_FEATURE_ENGINEERING.md).
+
+For the baseline model lesson, see [docs/DAY_07_BASELINE_MODEL.md](docs/DAY_07_BASELINE_MODEL.md).
+
+For the better model lesson, see [docs/DAY_08_BETTER_MODEL.md](docs/DAY_08_BETTER_MODEL.md).
+
+For the repeatable training workflow lesson, see [docs/DAY_09_TRAIN_TEST_WORKFLOW.md](docs/DAY_09_TRAIN_TEST_WORKFLOW.md).
 
 For the first exploratory analysis, see [docs/EDA_SUMMARY.md](docs/EDA_SUMMARY.md).
 
@@ -179,4 +195,18 @@ These are intentionally outside the core 30-day scope:
 
 ## Project Status
 
-Day 1 setup phase. The Kaggle dataset has been selected and loaded locally. The next step is to start exploratory data analysis.
+Day 9 repeatable training workflow is now in place. A single command runs the
+full pipeline on a fixed train/test split, trains the candidate models (Linear
+Regression baseline and Random Forest), selects the best by MAE, and saves both
+the chosen `production_model.joblib` and a `training_run.json` manifest that
+records the dataset, split, selected model, and metrics. Running it twice gives
+the identical result, so training is reproducible. On the real dataset the Random
+Forest is selected, cutting average error from about 27,000 SAR to about 12,000
+SAR and raising R2 from 0.59 to 0.88.
+
+Model charts (baseline regression line, predicted-vs-actual, error distribution,
+and a metrics scoreboard) can be regenerated with
+`python -m saudi_car_ai.models.visualize` into `docs/assets/models/`.
+
+Week 1 milestone reached: a single, reproducible command trains and selects a car
+price model, saves it, and records exactly how it was produced.
